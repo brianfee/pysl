@@ -34,6 +34,7 @@ def delete_fifo(fifo):
 def main():
     """ Main function for pysl """
     print('pysl launched...')
+    sys.stdout.flush()
     create_fifo(FIFO)
 
     signal.signal(signal.SIGINT, signal_handler)
@@ -42,6 +43,7 @@ def main():
 
     while True:
         read_fifo(FIFO)
+        sys.stdout.flush()
 
 if __name__ == '__main__':
     main()
