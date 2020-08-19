@@ -33,6 +33,8 @@ def create_fifo(fifo):
 
 def read_fifo(fifo):
     """ Open and read input from a FIFO pipe. """
+    ret_data = ''
+
     with open(fifo) as pipe:
         while True:
             data = pipe.read()
@@ -40,7 +42,9 @@ def read_fifo(fifo):
             if len(data) == 0:
                 break
 
-            print(data, end='')
+            ret_data = data
+
+    return ret_data
 
 def write_fifo(fifo, output):
     """ Open and append output to a FIFO pipe. """
@@ -84,7 +88,8 @@ def main():
         signal.signal(signal.SIGTERM, cleanup)
 
         while True:
-            read_fifo(FIFO)
+            data = read_fifo(FIFO)
+            print(data, end='')
             sys.stdout.flush()
 
     else:
