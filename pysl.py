@@ -11,7 +11,7 @@ FIFO = f'/tmp/pysl.{os.getpid()}'
 def signal_handler(sig, frame):
     delete_fifo(FIFO)
     sys.exit(0)
-    
+
 def create_fifo(fifo):
     """ Create a FIFO pipe. """
     os.mkfifo(fifo)
@@ -37,10 +37,9 @@ def main():
     create_fifo(FIFO)
 
     signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGHUP, signal_handler)
+    signal.signal(signal.SIGTERM, signal_handler)
 
-    print(f'Pipe created at {FIFO}')
-
-    print('Pipe Output:')
     while True:
         read_fifo(FIFO)
 
