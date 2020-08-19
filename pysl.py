@@ -6,8 +6,6 @@ import os
 
 def create_fifo(fifo):
     """ Create a first in, first out pipe. """
-    pid = os.getpid()
-    fifo = f'/tmp/pysl_input.{pid}'
     os.mkfifo(fifo)
 
 def main():
