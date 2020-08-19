@@ -20,8 +20,8 @@ def get_fifo_list():
     rootdir = '/tmp'
 
     pipes = []
-    for root, dirs, files in os.walk(rootdir):
-        for f in files:
+    for root, _, files in os.walk(rootdir):
+        for f in files: # pylint: disable=invalid-name
             if re.search('pysl.?', f):
                 pipes.append(f'{root}/{f}')
 
