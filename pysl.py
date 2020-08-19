@@ -3,19 +3,46 @@
 """ Main status line script. """
 
 import os
+import signal
+import sys
 
+FIFO = f'/tmp/pysl.{os.getpid()}'
+
+def signal_handler(sig, frame):
+    delete_fifo(FIFO)
+    sys.exit(0)
+    
 def create_fifo(fifo):
-    """ Create a first in, first out pipe. """
+    """ Create a FIFO pipe. """
     os.mkfifo(fifo)
+
+def read_fifo(fifo):
+    """ Open and read input from a FIFO pipe. """
+    with open(fifo) as pipe:
+        while True:
+            data = pipe.read()
+
+            if len(data) == 0:
+                break;
+
+            print(data, end='')
+
+def delete_fifo(fifo):
+    """ Delete a FIFO pipe. """
+    os.remove(fifo)
 
 def main():
     """ Main function for pysl """
     print('pysl launched...')
+    create_fifo(FIFO)
 
-    fifo = f'/tmp/pysl_input.{os.getpid()}'
+    signal.signal(signal.SIGINT, signal_handler)
 
-    create_fifo(fifo)
-    print(f'Pipe created at {fifo}')
+    print(f'Pipe created at {FIFO}')
+
+    print('Pipe Output:')
+    while True:
+        read_fifo(FIFO)
 
 if __name__ == '__main__':
     main()
