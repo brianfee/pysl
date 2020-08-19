@@ -4,6 +4,7 @@
 
 import argparse
 import os
+import re
 import signal
 import sys
 
@@ -13,6 +14,18 @@ def cleanup(sig, frame): # pylint: disable=unused-argument
     """ Cleanup on OS signals. """
     delete_fifo(FIFO)
     sys.exit(0)
+
+def get_fifo_list():
+    """ Get list of active FIFOs created by pysl processes. """
+    rootdir = '/tmp'
+
+    pipes = []
+    for root, dirs, files in os.walk(rootdir):
+        for f in files:
+            if re.search('pysl.?', f):
+                pipes.append(f'{root}/{f}')
+
+    return pipes
 
 def create_fifo(fifo):
     """ Create a FIFO pipe. """
@@ -31,7 +44,6 @@ def read_fifo(fifo):
 
 def write_fifo(fifo, output):
     """ Open and append output to a FIFO pipe. """
-    print(fifo)
     with open(fifo, 'w') as pipe:
         pipe.write(output + '\n')
         pipe.flush()
@@ -62,23 +74,26 @@ def main():
 
     args = parse_arguments()
 
-    print(args.pid)
-    print(args.text)
-    if not args.watch:
-        write_fifo(f'/tmp/pysl.{args.pid}', args.text)
-        sys.exit()
-
-    print('pysl launched...')
-    sys.stdout.flush()
-    create_fifo(FIFO)
-
-    signal.signal(signal.SIGINT, cleanup)
-    signal.signal(signal.SIGHUP, cleanup)
-    signal.signal(signal.SIGTERM, cleanup)
-
-    while True:
-        read_fifo(FIFO)
+    if args.watch:
+        print('pysl launched...')
         sys.stdout.flush()
+        create_fifo(FIFO)
+
+        signal.signal(signal.SIGINT, cleanup)
+        signal.signal(signal.SIGHUP, cleanup)
+        signal.signal(signal.SIGTERM, cleanup)
+
+        while True:
+            read_fifo(FIFO)
+            sys.stdout.flush()
+
+    else:
+        pipes = [f'/tmp/pysl.{args.pid}'] if args.pid else get_fifo_list()
+
+        get_fifo_list()
+
+        for pipe in pipes:
+            write_fifo(pipe, args.text)
 
 if __name__ == '__main__':
     main()
