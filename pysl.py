@@ -7,12 +7,18 @@ import os
 import re
 import signal
 import sys
+import threading
+import time
 
 FIFO = f'/tmp/pysl.{os.getpid()}'
+OUTPUT = []
+OUTPUT_AVAILABLE = threading.Event()
 
 def cleanup(sig, frame): # pylint: disable=unused-argument
     """ Cleanup on OS signals. """
     delete_fifo(FIFO)
+
+    print("Process interrupt detected. Exiting...")
     sys.exit(0)
 
 def get_fifo_list():
@@ -72,10 +78,18 @@ def parse_arguments():
 
     return parser.parse_args()
 
+def start_watcher():
+    """ Daemon process for watching input pipe. """
+    global OUTPUT # pylint: disable=global-statement
+
+    while True:
+        data = read_fifo(FIFO)
+        OUTPUT.append(data)
+        OUTPUT_AVAILABLE.set()
+
 
 def main():
     """ Main function for pysl """
-
     args = parse_arguments()
 
     if args.watch:
@@ -87,15 +101,20 @@ def main():
         signal.signal(signal.SIGHUP, cleanup)
         signal.signal(signal.SIGTERM, cleanup)
 
+        watcher = threading.Thread(target=start_watcher, daemon=True)
+        watcher.start()
+
         while True:
-            data = read_fifo(FIFO)
-            print(data, end='')
+            if not OUTPUT:
+                OUTPUT_AVAILABLE.wait()
+
+            OUTPUT_AVAILABLE.clear()
+            print(OUTPUT.pop(0), end='')
+            time.sleep(1)
             sys.stdout.flush()
 
     else:
         pipes = [f'/tmp/pysl.{args.pid}'] if args.pid else get_fifo_list()
-
-        get_fifo_list()
 
         for pipe in pipes:
             write_fifo(pipe, args.text)
