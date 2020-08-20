@@ -5,7 +5,9 @@
 import argparse
 import os
 import re
+import shlex
 import signal
+import subprocess
 import sys
 import threading
 import time
@@ -62,6 +64,21 @@ def delete_fifo(fifo):
     """ Delete a FIFO pipe. """
     os.remove(fifo)
 
+def start_watcher():
+    """ Daemon process for watching input pipe. """
+    global OUTPUT # pylint: disable=global-statement
+
+    while True:
+        data = read_fifo(FIFO)
+        OUTPUT.append(data)
+        OUTPUT_AVAILABLE.set()
+
+def get_command_output(cmd):
+    """ Run an OS command, and return the stdout. """
+    result = subprocess.run(shlex.split(cmd), stdout=subprocess.PIPE,
+                            check=True)
+    return result.stdout.decode('utf-8')
+
 def parse_arguments():
     """ Parses command line arguments. """
     desc = """Python Status Line"""
@@ -75,18 +92,10 @@ def parse_arguments():
                         metavar='PID')
     parser.add_argument('-w', '--watch', help='run program in watcher mode.',
                         action='store_true')
+    parser.add_argument('--default-cmd', type=str, metavar='CMD', dest='cmd',
+                        help="""a command to run when no input is detected""")
 
     return parser.parse_args()
-
-def start_watcher():
-    """ Daemon process for watching input pipe. """
-    global OUTPUT # pylint: disable=global-statement
-
-    while True:
-        data = read_fifo(FIFO)
-        OUTPUT.append(data)
-        OUTPUT_AVAILABLE.set()
-
 
 def main():
     """ Main function for pysl """
@@ -106,9 +115,14 @@ def main():
 
         while True:
             if not OUTPUT:
-                OUTPUT_AVAILABLE.wait()
+                OUTPUT_AVAILABLE.wait(3)
 
             OUTPUT_AVAILABLE.clear()
+
+            # Check for any additions to output, avoiding race condition.
+            if not OUTPUT:
+                OUTPUT.append(get_command_output(args.cmd) if args.cmd else '')
+
             print(OUTPUT.pop(0), end='')
             time.sleep(1)
             sys.stdout.flush()
