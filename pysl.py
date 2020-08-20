@@ -88,12 +88,17 @@ def parse_arguments():
     parser.add_argument('text', type=str, default='', nargs='?')
 
     # Optional Arguments
+    parser.add_argument('-d', '--delay', type=float, metavar='N', default=3,
+                        help="""seconds to wait for messages before
+                            default action (default: 3s)""")
     parser.add_argument('-p', '--pid', help='specify process id', type=str,
                         metavar='PID')
-    parser.add_argument('-w', '--watch', help='run program in watcher mode.',
+    parser.add_argument('-t', '--timer', type=float, metavar='N', default=0.3,
+                        help='seconds to display messages (default: 0.3s)')
+    parser.add_argument('-w', '--watch', help='run program in watcher mode',
                         action='store_true')
     parser.add_argument('--default-cmd', type=str, metavar='CMD', dest='cmd',
-                        help="""a command to run when no input is detected""")
+                        help='a command to run when no input is detected')
 
     return parser.parse_args()
 
@@ -115,7 +120,7 @@ def main():
 
         while True:
             if not OUTPUT:
-                OUTPUT_AVAILABLE.wait(3)
+                OUTPUT_AVAILABLE.wait(args.delay)
 
             OUTPUT_AVAILABLE.clear()
 
@@ -124,7 +129,7 @@ def main():
                 OUTPUT.append(get_command_output(args.cmd) if args.cmd else '')
 
             print(OUTPUT.pop(0), end='')
-            time.sleep(1)
+            time.sleep(args.timer)
             sys.stdout.flush()
 
     else:
