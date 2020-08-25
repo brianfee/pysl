@@ -23,6 +23,10 @@ def cleanup(sig, frame): # pylint: disable=unused-argument
     print("Process interrupt detected. Exiting...")
     sys.exit(0)
 
+def timer_handler(sig, frame): # pylint disable=unused-argument
+    """ Handler for elapsed signal timers. """
+    raise OSError('timer expired')
+
 def get_fifo_list():
     """ Get list of active FIFOs created by pysl processes. """
     rootdir = '/tmp'
@@ -56,9 +60,23 @@ def read_fifo(fifo):
 
 def write_fifo(fifo, output):
     """ Open and append output to a FIFO pipe. """
-    with open(fifo, 'w') as pipe:
-        pipe.write(output + '\n')
-        pipe.flush()
+    if not os.path.exists(fifo):
+        sys.exit(f'{fifo} does not exist')
+
+    signal.signal(signal.SIGALRM, timer_handler)
+    signal.alarm(1)
+
+    try:
+        with open(fifo, 'w') as pipe:
+            pipe.write(output + '\n')
+            pipe.flush()
+
+    except OSError:
+        delete_fifo(fifo)
+        print(f'Removed stale ipc channel: {fifo}')
+
+    finally:
+        signal.alarm(0)
 
 def delete_fifo(fifo):
     """ Delete a FIFO pipe. """
