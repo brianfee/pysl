@@ -12,7 +12,7 @@ import sys
 import threading
 import time
 
-FIFO = f'/tmp/pysl.{os.getpid()}'
+FIFO = '/tmp/pysl'
 OUTPUT = []
 OUTPUT_AVAILABLE = threading.Event()
 
@@ -91,14 +91,14 @@ def parse_arguments():
     parser.add_argument('-d', '--delay', type=float, metavar='N', default=3,
                         help="""seconds to wait for messages before
                             default action (default: 3s)""")
-    parser.add_argument('-p', '--pid', help='specify process id', type=str,
-                        metavar='PID')
+    parser.add_argument('-i', '--id', type=str, metavar='ID',
+                        help='specify id (default: process id')
     parser.add_argument('-t', '--timer', type=float, metavar='N', default=0.3,
                         help='seconds to display messages (default: 0.3s)')
     parser.add_argument('-w', '--watch', help='run program in watcher mode',
                         action='store_true')
     parser.add_argument('--default-cmd', type=str, metavar='CMD', dest='cmd',
-                        help='a command to run when no input is detected')
+                        help='command to run when no messages are queued')
 
     return parser.parse_args()
 
@@ -106,9 +106,14 @@ def main():
     """ Main function for pysl """
     args = parse_arguments()
 
+    global FIFO # pylint: disable=global-statement
+    if args.id:
+        FIFO += f'.{args.id}'
+
     if args.watch:
         print('pysl launched...')
         sys.stdout.flush()
+
         create_fifo(FIFO)
 
         signal.signal(signal.SIGINT, cleanup)
@@ -133,7 +138,7 @@ def main():
             sys.stdout.flush()
 
     else:
-        pipes = [f'/tmp/pysl.{args.pid}'] if args.pid else get_fifo_list()
+        pipes = [FIFO] if args.id else get_fifo_list()
 
         for pipe in pipes:
             write_fifo(pipe, args.text)
