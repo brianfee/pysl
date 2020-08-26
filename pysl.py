@@ -15,6 +15,7 @@ import time
 FIFO = '/tmp/pysl'
 OUTPUT = []
 OUTPUT_AVAILABLE = threading.Event()
+DIRECT_ONLY = False
 
 def cleanup(sig, frame): # pylint: disable=unused-argument
     """ Cleanup on OS signals. """
@@ -87,8 +88,12 @@ def start_watcher():
     global OUTPUT # pylint: disable=global-statement
 
     while True:
-        data = read_fifo(FIFO)
-        OUTPUT.append(data)
+        output_mode, text = read_fifo(FIFO).split('%%', 1)
+
+        if DIRECT_ONLY and output_mode == 'broadcast':
+            continue
+
+        OUTPUT.append(text)
         OUTPUT_AVAILABLE.set()
 
 def get_command_output(cmd):
@@ -117,6 +122,9 @@ def parse_arguments():
                         action='store_true')
     parser.add_argument('--default-cmd', type=str, metavar='CMD', dest='cmd',
                         help='command to run when no messages are queued')
+    parser.add_argument('--direct-msg-only', dest='direct_only',
+                        help='only display messages sent to this specific id',
+                        action='store_true')
 
     return parser.parse_args()
 
@@ -127,6 +135,8 @@ def main():
     global FIFO # pylint: disable=global-statement
     if args.id:
         FIFO += f'.{args.id}'
+    else:
+        FIFO += f'.{os.getpid()}'
 
     if args.watch:
         print('pysl launched...')
@@ -137,6 +147,9 @@ def main():
         signal.signal(signal.SIGINT, cleanup)
         signal.signal(signal.SIGHUP, cleanup)
         signal.signal(signal.SIGTERM, cleanup)
+
+        global DIRECT_ONLY # pylint: disable=global-statement
+        DIRECT_ONLY = args.direct_only
 
         watcher = threading.Thread(target=start_watcher, daemon=True)
         watcher.start()
@@ -156,10 +169,16 @@ def main():
             sys.stdout.flush()
 
     else:
-        pipes = [FIFO] if args.id else get_fifo_list()
+        if args.id:
+            pipes = [FIFO]
+            text = f'{FIFO}%%{args.text}'
+
+        else:
+            pipes = get_fifo_list()
+            text = f'broadcast%%{args.text}'
 
         for pipe in pipes:
-            write_fifo(pipe, args.text)
+            write_fifo(pipe, text)
 
 if __name__ == '__main__':
     main()
