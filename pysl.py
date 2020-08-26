@@ -88,7 +88,12 @@ def start_watcher():
     global OUTPUT # pylint: disable=global-statement
 
     while True:
-        output_mode, text = read_fifo(FIFO).split('%%', 1)
+        data = read_fifo(FIFO)
+        try:
+            output_mode, text = data.split('%%', 1)
+        except ValueError:
+            output_mode = 'direct'
+            text = data
 
         if DIRECT_ONLY and output_mode == 'broadcast':
             continue
