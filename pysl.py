@@ -15,7 +15,6 @@ import time
 FIFO = '/tmp/pysl'
 OUTPUT = []
 OUTPUT_AVAILABLE = threading.Event()
-DIRECT_ONLY = False
 
 def cleanup(sig, frame): # pylint: disable=unused-argument
     """ Cleanup on OS signals. """
@@ -83,10 +82,8 @@ def delete_fifo(fifo):
     """ Delete a FIFO pipe. """
     os.remove(fifo)
 
-def start_watcher():
+def start_watcher(direct_only):
     """ Daemon process for watching input pipe. """
-    global OUTPUT # pylint: disable=global-statement
-
     while True:
         data = read_fifo(FIFO)
         try:
@@ -95,7 +92,7 @@ def start_watcher():
             output_mode = 'direct'
             text = data
 
-        if DIRECT_ONLY and output_mode == 'broadcast':
+        if direct_only and output_mode == 'broadcast':
             continue
 
         OUTPUT.append(text)
@@ -153,10 +150,8 @@ def main():
         signal.signal(signal.SIGHUP, cleanup)
         signal.signal(signal.SIGTERM, cleanup)
 
-        global DIRECT_ONLY # pylint: disable=global-statement
-        DIRECT_ONLY = args.direct_only
-
-        watcher = threading.Thread(target=start_watcher, daemon=True)
+        watcher = threading.Thread(target=start_watcher, daemon=True,
+                                   args=(args.direct_only,))
         watcher.start()
 
         while True:
